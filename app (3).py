@@ -3,87 +3,84 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="EcoRank: VIKOR Stock Ranking", layout="wide")
+st.set_page_config(page_title="VIKOR-Stocks", layout="wide")
 
-st.title("🌱 EcoRank: Big Data-Powered VIKOR System for Sustainable Stock Decision-Making")
-st.markdown("Upload a CSV file with **1 alternative column** (stock name) and **7 criteria columns** (EPS, DPS, NTA, PE, DY, ROE, PTBV).")
+st.title("📊 VIKOR-Stocks: Intelligent Stock Ranking System")
+st.markdown("Using VIKOR MCDM method for ranking stock alternatives based on multiple criteria.")
 
-# Upload CSV
-uploaded_file = st.file_uploader("📂 Upload your stock CSV file", type="csv")
+# Upload CSV file
+uploaded_file = st.file_uploader("📂 Upload CSV file (First column = Alternatives, rest = 10 Criteria)", type="csv")
 
 if uploaded_file:
-    try:
-        df = pd.read_csv(uploaded_file)
-        st.subheader("📋 Uploaded Data")
-        st.dataframe(df)
+    df = pd.read_csv(uploaded_file)
+    st.subheader("📁 Raw Data")
+    st.dataframe(df)
 
-        expected_cols = ['EPS', 'DPS', 'NTA', 'PE', 'DY', 'ROE', 'PTBV']
-        if not all(col in df.columns for col in expected_cols):
-            st.error(f"❌ Your file must contain these columns: {expected_cols}")
-        else:
-            # Extract alternatives and criteria
-            alternatives = df.iloc[:, 0].values
-            criteria = df[expected_cols]
+    alternatives = df.iloc[:, 0].values  # Alternatives
+    criteria = df.iloc[:, 1:]  # Criteria data
 
-            # Define benefit and cost criteria
-            benefit = ['EPS', 'DPS', 'NTA', 'DY', 'ROE']
-            cost = ['PE', 'PTBV']
+    # Define benefit and cost criteria
+    benefit_criteria = ['EPS', 'DPS', 'NTA', 'DY', 'ROE', 'GPM', 'OPM', 'ROA']
+    cost_criteria = ['PE', 'PTBV']
 
-            # Step 1: Normalize
-            norm = pd.DataFrame()
-            for col in criteria.columns:
-                if col in benefit:
-                    norm[col] = (criteria[col] - criteria[col].min()) / (criteria[col].max() - criteria[col].min())
-                elif col in cost:
-                    norm[col] = (criteria[col].max() - criteria[col]) / (criteria[col].max() - criteria[col].min())
+    # Step 1: Normalize Decision Matrix
+    norm = pd.DataFrame()
+    for col in criteria.columns:
+        if col in benefit_criteria:
+            norm[col] = (criteria[col] - criteria[col].min()) / (criteria[col].max() - criteria[col].min())
+        elif col in cost_criteria:
+            norm[col] = (criteria[col].max() - criteria[col]) / (criteria[col].max() - criteria[col].min())
 
-            st.markdown("### Step 1️⃣: Normalized Matrix")
-            st.dataframe(norm)
+    st.markdown("### ✅ Step 1: Normalized Matrix")
+    st.dataframe(norm)
 
-            # Step 2: Best and Worst
-            f_star = norm.max()
-            f_minus = norm.min()
+    # Step 2: Best and Worst Values
+    f_star = norm.max()
+    f_minus = norm.min()
 
-            st.markdown("### Step 2️⃣: Best and Worst Values")
-            st.write("⭐ Best (f*):", f_star)
-            st.write("🔻 Worst (f-):", f_minus)
+    st.markdown("### ⭐ Step 2: Best (f*) and Worst (f-) Values")
+    st.write("Best (f*):", f_star)
+    st.write("Worst (f-):", f_minus)
 
-            # Step 3: S and R
-            weights = np.ones(len(norm.columns)) / len(norm.columns)
-            weighted_diff = weights * (f_star - norm) / (f_star - f_minus + 1e-9)
-            S = weighted_diff.sum(axis=1)
-            R = weighted_diff.max(axis=1)
+    # Step 3: Compute S and R
+    weights_series = pd.Series(data=np.ones(len(norm.columns)) / len(norm.columns), index=norm.columns)
 
-            # Step 4: Q calculation
-            v = 0.5
-            S_star, S_minus = S.min(), S.max()
-            R_star, R_minus = R.min(), R.max()
-            Q = v * (S - S_star) / (S_minus - S_star + 1e-9) + (1 - v) * (R - R_star) / (R_minus - R_star + 1e-9)
+    S = ((weights_series * (f_star - norm) / (f_star - f_minus + 1e-9)).sum(axis=1))
+    R = ((weights_series * (f_star - norm) / (f_star - f_minus + 1e-9)).max(axis=1))
 
-            # Step 5: Results
-            result_df = pd.DataFrame({
-                'Stock': alternatives,
-                'S': S,
-                'R': R,
-                'Q': Q
-            }).sort_values(by='Q').reset_index(drop=True)
+    st.markdown("### 📉 Step 3: Utility (Sᵢ) and Regret (Rᵢ)")
+    st.write("S (Group Utility):", S)
+    st.write("R (Individual Regret):", R)
 
-            st.markdown("### 🏁 Final VIKOR Ranking")
-            st.dataframe(result_df)
+    # Step 4: Compute Q index
+    v = 0.5
+    S_star, S_minus = S.min(), S.max()
+    R_star, R_minus = R.min(), R.max()
 
-            st.success(f"🎯 Top Ranked Stock: {result_df.iloc[0]['Stock']}")
+    Q = v * (S - S_star) / (S_minus - S_star + 1e-9) + (1 - v) * (R - R_star) / (R_minus - R_star + 1e-9)
 
-            # Step 6: Bar Chart
-            st.markdown("### 📊 Q Value Chart")
-            fig, ax = plt.subplots(figsize=(10, 6))
-            ax.bar(result_df['Stock'], result_df['Q'], color='green')
-            ax.set_xlabel("Stock")
-            ax.set_ylabel("Q Value")
-            ax.set_title("VIKOR Ranking (Lower Q is Better)")
-            ax.tick_params(axis='x', rotation=45)
-            st.pyplot(fig)
+    # Step 5: Rank Alternatives
+    result_df = pd.DataFrame({
+        'Alternative': alternatives,
+        'S': S,
+        'R': R,
+        'Q': Q
+    }).sort_values(by='Q').reset_index(drop=True)
 
-    except Exception as e:
-        st.error(f"❌ Error reading file: {e}")
+    st.subheader("🏁 Final VIKOR Ranking")
+    st.dataframe(result_df)
+
+    st.success(f"🎯 Best Alternative: {result_df.iloc[0]['Alternative']}")
+
+    # Step 6: Q-Value Bar Chart
+    st.markdown("### 📊 VIKOR Q Value Bar Chart")
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.bar(result_df['Alternative'], result_df['Q'], color='skyblue')
+    ax.set_xlabel("Alternative")
+    ax.set_ylabel("Q Value")
+    ax.set_title("Ranking Based on Q Values (Lower is Better)")
+    ax.set_xticklabels(result_df['Alternative'], rotation=90)
+    st.pyplot(fig)
+
 else:
-    st.info("Upload a CSV file with your stock data to begin.")
+    st.info("Please upload a CSV file with 1 alternative column and 10 criteria columns.")
