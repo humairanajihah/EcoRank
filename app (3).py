@@ -3,10 +3,10 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="VIKOR-Stocks", layout="wide")
+st.set_page_config(page_title="EcoRank", layout="wide")
 
-st.title("📊 VIKOR-Stocks: Intelligent Stock Ranking System")
-st.markdown("Using VIKOR MCDM method for ranking stock alternatives based on multiple criteria.")
+st.title("🌱 EcoRank: Big Data-Powered VIKOR System for Sustainable Stock Decision-Making")
+st.markdown("Rank stocks using the VIKOR multi-criteria decision-making method. Upload your dataset and let the system evaluate the best sustainable stock choices.")
 
 # Upload CSV file
 uploaded_file = st.file_uploader("📂 Upload CSV file (First column = Alternatives, rest = 10 Criteria)", type="csv")
@@ -30,6 +30,9 @@ if uploaded_file:
             norm[col] = (criteria[col] - criteria[col].min()) / (criteria[col].max() - criteria[col].min())
         elif col in cost_criteria:
             norm[col] = (criteria[col].max() - criteria[col]) / (criteria[col].max() - criteria[col].min())
+        else:
+            st.warning(f"⚠️ Column '{col}' not recognized as benefit or cost. Skipping.")
+            norm[col] = 0
 
     st.markdown("### ✅ Step 1: Normalized Matrix")
     st.dataframe(norm)
@@ -53,7 +56,7 @@ if uploaded_file:
     st.write("R (Individual Regret):", R)
 
     # Step 4: Compute Q index
-    v = 0.5
+    v = 0.5  # weight for strategy of majority
     S_star, S_minus = S.min(), S.max()
     R_star, R_minus = R.min(), R.max()
 
@@ -75,7 +78,7 @@ if uploaded_file:
     # Step 6: Q-Value Bar Chart
     st.markdown("### 📊 VIKOR Q Value Bar Chart")
     fig, ax = plt.subplots(figsize=(10, 6))
-    ax.bar(result_df['Alternative'], result_df['Q'], color='skyblue')
+    ax.bar(result_df['Alternative'], result_df['Q'], color='seagreen')
     ax.set_xlabel("Alternative")
     ax.set_ylabel("Q Value")
     ax.set_title("Ranking Based on Q Values (Lower is Better)")
@@ -83,4 +86,4 @@ if uploaded_file:
     st.pyplot(fig)
 
 else:
-    st.info("Please upload a CSV file with 1 alternative column and 10 criteria columns.")
+    st.info("📌 Please upload a CSV file with 1 alternative column and 10 criteria columns (EPS, DPS, NTA, PE, DY, ROE, GPM, OPM, ROA, PTBV).")
