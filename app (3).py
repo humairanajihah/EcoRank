@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 
 # Page config
 st.set_page_config(page_title="EcoRank", layout="wide")
@@ -17,7 +16,6 @@ benefit_criteria = ['EPS', 'DPS', 'NTA', 'DY', 'ROE', 'GPM', 'OPM', 'ROA']
 cost_criteria = ['PE', 'PTBV']
 
 if uploaded_file:
-    # Load data
     df = pd.read_csv(uploaded_file)
     if df.shape[1] != 11:
         st.error("❌ Your file must contain 1 alternative column + 10 criteria columns.")
@@ -78,19 +76,3 @@ if uploaded_file:
     st.dataframe(result)
 
     st.success(f"🎯 Top Ranked Stock: {result.iloc[0]['Stock']}")
-
-    # Step 5: Plot Q values
-    st.subheader("📈 Step 5: Visualize Q Rankings")
-    fig, ax = plt.subplots(figsize=(12, 5))
-    ax.bar(result['Stock'], result['Q'], color='teal')
-    ax.set_title("Q Values (Lower is Better)")
-    ax.set_xlabel("Stock")
-    ax.set_ylabel("Q Index")
-    ax.tick_params(axis='x', rotation=90)
-    st.pyplot(fig)
-
-    # Download result
-    st.download_button("📥 Download Ranking CSV", result.to_csv(index=False), "ecorank_results.csv")
-
-else:
-    st.info("Upload a properly formatted CSV file to begin.")
