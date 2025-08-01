@@ -19,10 +19,6 @@ if uploaded_file:
     alternatives = df.iloc[:, 0].values  # Alternatives
     criteria = df.iloc[:, 1:]  # Criteria data
 
-    # Define benefit and cost criteria
-    benefit_criteria = ['EPS', 'DPS', 'NTA', 'DY', 'ROE', 'GPM', 'OPM', 'ROA']
-    cost_criteria = ['PE', 'PTBV']
-
     # Step 1: Normalize Decision Matrix
     norm = pd.DataFrame()
     for col in criteria.columns:
