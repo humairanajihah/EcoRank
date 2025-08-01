@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -9,12 +8,12 @@ st.set_page_config(page_title="EcoRank", layout="wide")
 st.title("📊 EcoRank")
 st.subheader("Big Data-Powered VIKOR System for Sustainable Stock Decision-Making")
 
-REQUIRED_CRITERIA = ['EPS', 'DPS', 'NTA', 'PE', 'DY', 'ROE', 'PTBV']
+REQUIRED_CRITERIA = ['EPS', 'DPS', 'NTA', 'DY', 'ROE', 'GPM', 'OPM', 'ROA', 'PE', 'PTBV']
 
 st.markdown("""
 Upload a CSV file where:
 - First column = Stock Name (Alternative)
-- Next **7 columns** (in order) = EPS, DPS, NTA, PE, DY, ROE, PTBV
+- Next **10 columns** (in order) = EPS, DPS, NTA, DY, ROE, GPM, OPM, ROA, PE, PTBV
 
 All criteria are assumed to be **beneficial**.
 """)
@@ -48,19 +47,21 @@ if uploaded_file:
         weights = np.array(weights)
         weights /= weights.sum()
 
-        # Normalize data (benefit criteria)
+        # VIKOR Step 1: Normalize data (benefit criteria assumed)
         data = df[REQUIRED_CRITERIA].astype(float)
-        f_star = data.max()
-        f_minus = data.min()
+        f_star = data.max()  # best value for each criterion
+        f_minus = data.min()  # worst value for each criterion
+
         norm = (f_star - data) / (f_star - f_minus + 1e-9)
 
         st.write("### 📊 Normalized Data")
         st.dataframe(norm)
 
-        # Calculate S, R
-        S = (weights * norm).sum(axis=1)
-        R = (weights * norm).max(axis=1)
+        # VIKOR Step 2: Calculate S and R
+        S = (weights * norm).sum(axis=1)  # group utility
+        R = (weights * norm).max(axis=1)  # individual regret
 
+        # VIKOR Step 3: Calculate Q
         S_star, S_minus = S.min(), S.max()
         R_star, R_minus = R.min(), R.max()
 
