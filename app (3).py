@@ -1,89 +1,88 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 
-# Page setup
+# Page configuration
 st.set_page_config(page_title="EcoRank", layout="wide")
 
-st.title("📊 EcoRank")
-st.subheader("Big Data-Powered VIKOR System for Sustainable Stock Decision-Making")
+# App Title
+st.title("🌱 EcoRank: Big Data-Powered VIKOR System")
+st.markdown("Empowering a sustainable future through smart innovation — using the VIKOR MCDM method to rank stocks based on 10 sustainability and performance-related criteria.")
 
-REQUIRED_CRITERIA = ['EPS', 'DPS', 'NTA', 'DY', 'ROE', 'GPM', 'OPM', 'ROA', 'PE', 'PTBV']
-
-st.markdown("""
-Upload a CSV file where:
-- First column = Stock Name (Alternative)
-- Next **10 columns** (in order) = EPS, DPS, NTA, DY, ROE, GPM, OPM, ROA, PE, PTBV
-
-All criteria are assumed to be **beneficial**.
-""")
-
-# Upload CSV file
-uploaded_file = st.file_uploader("📎 Upload CSV File", type=["csv"])
+# Upload CSV
+uploaded_file = st.file_uploader("📂 Upload CSV file (First column = Stock Name / Alternative, rest = 10 Criteria)", type="csv")
 
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
+    st.subheader("📁 Raw Data")
+    st.dataframe(df)
 
-    # Validate columns
-    if df.columns[1:].tolist() != REQUIRED_CRITERIA:
-        st.error(f"❌ Column names do not match.\nExpected: {REQUIRED_CRITERIA}")
-    else:
-        st.success("✅ Data loaded successfully!")
+    alternatives = df.iloc[:, 0].values  # Stock names
+    criteria = df.iloc[:, 1:]  # 10 criteria
 
-        st.write("### 🧾 Raw Data")
-        st.dataframe(df)
+    # Criteria definition
+    benefit_criteria = ['EPS', 'DPS', 'NTA', 'DY', 'ROE', 'GPM', 'OPM', 'ROA']
+    cost_criteria = ['PE', 'PTBV']
 
-        # Sidebar: VIKOR parameters
-        st.sidebar.title("⚙️ VIKOR Settings")
-        v = st.sidebar.slider("V value (balance between group utility & regret)", 0.0, 1.0, 0.5)
+    # Step 1: Normalize Decision Matrix
+    norm = pd.DataFrame()
+    for col in criteria.columns:
+        if col in benefit_criteria:
+            norm[col] = (criteria[col] - criteria[col].min()) / (criteria[col].max() - criteria[col].min())
+        elif col in cost_criteria:
+            norm[col] = (criteria[col].max() - criteria[col]) / (criteria[col].max() - criteria[col].min())
 
-        # Criteria weights
-        st.sidebar.markdown("### Criteria Weights")
-        weights = []
-        for crit in REQUIRED_CRITERIA:
-            w = st.sidebar.slider(f"Weight for {crit}", 0.0, 1.0, 1.0/len(REQUIRED_CRITERIA), step=0.05)
-            weights.append(w)
+    st.markdown("### ✅ Step 1: Normalized Matrix")
+    st.dataframe(norm)
 
-        weights = np.array(weights)
-        weights /= weights.sum()
+    # Step 2: Best and Worst Values
+    f_star = norm.max()
+    f_minus = norm.min()
 
-        # VIKOR Step 1: Normalize data (benefit criteria assumed)
-        data = df[REQUIRED_CRITERIA].astype(float)
-        f_star = data.max()  # best value for each criterion
-        f_minus = data.min()  # worst value for each criterion
+    st.markdown("### ⭐ Step 2: Best (f*) and Worst (f-) Values")
+    st.write("Best (f*):", f_star)
+    st.write("Worst (f-):", f_minus)
 
-        norm = (f_star - data) / (f_star - f_minus + 1e-9)
+    # Step 3: Compute S and R
+    weights_series = pd.Series(data=np.ones(len(norm.columns)) / len(norm.columns), index=norm.columns)
 
-        st.write("### 📊 Normalized Data")
-        st.dataframe(norm)
+    S = ((weights_series * (f_star - norm) / (f_star - f_minus + 1e-9)).sum(axis=1))
+    R = ((weights_series * (f_star - norm) / (f_star - f_minus + 1e-9)).max(axis=1))
 
-        # VIKOR Step 2: Calculate S and R
-        S = (weights * norm).sum(axis=1)  # group utility
-        R = (weights * norm).max(axis=1)  # individual regret
+    st.markdown("### 📉 Step 3: Utility (Sᵢ) and Regret (Rᵢ)")
+    st.write("S (Group Utility):", S)
+    st.write("R (Individual Regret):", R)
 
-        # VIKOR Step 3: Calculate Q
-        S_star, S_minus = S.min(), S.max()
-        R_star, R_minus = R.min(), R.max()
+    # Step 4: Compute Q index
+    v = 0.5  # user-defined weight
+    S_star, S_minus = S.min(), S.max()
+    R_star, R_minus = R.min(), R.max()
 
-        Q = v * (S - S_star) / (S_minus - S_star + 1e-9) + \
-            (1 - v) * (R - R_star) / (R_minus - R_star + 1e-9)
+    Q = v * (S - S_star) / (S_minus - S_star + 1e-9) + (1 - v) * (R - R_star) / (R_minus - R_star + 1e-9)
 
-        # Compile result
-        results = pd.DataFrame({
-            'Stock': df.iloc[:, 0],
-            'S': S.round(4),
-            'R': R.round(4),
-            'Q': Q.round(4)
-        })
+    # Step 5: Rank Alternatives
+    result_df = pd.DataFrame({
+        'Stock': alternatives,
+        'S': S,
+        'R': R,
+        'Q': Q
+    }).sort_values(by='Q').reset_index(drop=True)
 
-        results = results.sort_values(by='Q').reset_index(drop=True)
+    st.subheader("🏁 Final EcoRank Result")
+    st.dataframe(result_df)
 
-        st.write("### 🏆 VIKOR Ranking")
-        st.dataframe(results)
+    st.success(f"🌟 Top Stock Choice: {result_df.iloc[0]['Stock']}")
 
-        st.download_button("📥 Download Ranking CSV", results.to_csv(index=False), "ecorank_vikor_results.csv")
+    # Step 6: Q-Value Bar Chart
+    st.markdown("### 📊 Q Value Bar Chart")
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.bar(result_df['Stock'], result_df['Q'], color='seagreen')
+    ax.set_xlabel("Stock")
+    ax.set_ylabel("Q Value")
+    ax.set_title("EcoRank Stock Prioritization (Lower is Better)")
+    ax.set_xticklabels(result_df['Stock'], rotation=90)
+    st.pyplot(fig)
+
 else:
-    st.info("Upload your properly formatted CSV file to begin.")
-
-st.markdown("---")
-st.caption("🔬 EcoRank | Developed for INoDEx 2025")
+    st.info("Please upload a CSV file with 1 alternative column and 10 numerical criteria columns (EPS, DPS, NTA, DY, ROE, GPM, OPM, ROA, PE, PTBV).")
