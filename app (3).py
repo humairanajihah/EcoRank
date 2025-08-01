@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-pip install -r requirements.txt
 st.set_page_config(page_title="VIKOR-Stocks", layout="wide")
 
 st.title("📊 VIKOR-Stocks: Intelligent Stock Ranking System")
